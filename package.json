@@ -1,0 +1,29 @@
+{
+  "name": "client",
+  "version": "1.0.0",
+  "description": "Alt manager front-end",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "webpack serve --mode development --open",
+    "build": "webpack --mode production",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Zefir Kirilov",
+  "license": "AGPL-3.0",
+  "devDependencies": {
+    "copy-webpack-plugin": "^11.0.0",
+    "css-loader": "^6.7.3",
+    "css-minimizer-webpack-plugin": "^5.0.0",
+    "html-minimizer-webpack-plugin": "^4.3.0",
+    "postcss": "^8.4.21",
+    "postcss-loader": "^7.2.0",
+    "postcss-preset-env": "^8.3.0",
+    "style-loader": "^3.3.2",
+    "tailwindcss": "^3.3.1",
+    "ts-loader": "^9.4.2",
+    "typescript": "^5.0.3",
+    "webpack": "^5.77.0",
+    "webpack-cli": "^5.0.1"
+  }
+}
