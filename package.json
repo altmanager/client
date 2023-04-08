@@ -1,5 +1,5 @@
 {
-  "name": "client",
+  "name": "@altmanager/client",
   "version": "1.0.0",
   "description": "Alt manager front-end",
   "main": "index.js",
