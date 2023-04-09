@@ -302,7 +302,11 @@ screenManager.createScreen("players", "Alt Manager", true, async function () {
 
     const selectionToastRemove = selectionToastContainer.querySelector(":scope > div > div > div > button")!;
     selectionToastRemove.addEventListener("click", () => {
-        (grid.querySelectorAll("[data-id] input[type=checkbox]:checked") as NodeListOf<HTMLInputElement>).forEach(b => b.closest("[data-id]")!.remove());
+        const ids = [...grid.querySelectorAll("[data-id] input[type=checkbox]:checked")].map(e => (e.closest("[data-id]") as HTMLElement).dataset.id!);
+        for (const player of players) {
+            const offlinePlayer = player.online ? player.offlinePlayer : player;
+            if (ids.includes(offlinePlayer.id)) offlinePlayer.delete();
+        }
         selectionToastRender();
     });
 
