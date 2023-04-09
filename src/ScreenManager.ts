@@ -118,6 +118,33 @@ namespace ScreenManager {
         }
 
         /**
+         * Screen timers
+         */
+        private timers: number[] = [];
+
+        /**
+         * Create a timeout timer
+         * The timer is automatically cleared when the screen is destroyed (for ephemeral screens)
+         * @param handler Function to execute when the timer expires
+         * @param delay The number of milliseconds to wait before the timer expires
+         * @param args Additional arguments to pass to the handler function
+         */
+        public setTimeout(handler: TimerHandler, delay: number, ...args: any[]): void {
+            this.timers.push(window.setTimeout(handler, delay, ...args));
+        }
+
+        /**
+         * Create an interval timer
+         * The timer is automatically cleared when the screen is destroyed (for ephemeral screens)
+         * @param handler Function to execute every `delay` milliseconds
+         * @param delay The number of milliseconds to wait before running the handler function again
+         * @param args Additional arguments to pass to the handler function
+         */
+        public setInterval(handler: TimerHandler, delay: number, ...args: any[]): void {
+            this.timers.push(window.setInterval(handler, delay, ...args));
+        }
+
+        /**
          * Open screen
          * @param params Screen render parameters
          */
@@ -144,6 +171,8 @@ namespace ScreenManager {
             if (this.ephemeral) {
                 this.container.remove();
                 this.initContainer();
+                for (const timer of this.timers) window.clearTimeout(timer);
+                this.timers = [];
             }
             else this.container.classList.add("hidden");
             this.#open = false;

@@ -2,6 +2,11 @@ import "./styles.css";
 import ScreenManager from "./ScreenManager";
 import Navigation from "./Navigation";
 import KeyboardShortcuts from "./KeyboardShortcuts";
+import AltManager from "@altmanager/ts-client";
+
+const client = new AltManager;
+// @ts-ignore
+window.client = client;
 
 const timeFormat = (date: Date, ago?: boolean) => {
     const now = Date.now();
@@ -36,12 +41,6 @@ const navigation = new Navigation([{
     click: () => screenManager.open("settings").then()
 }]);
 
-interface PartialPlayer {uuid: string, name: string, status: "online" | "offline", version?: string, server?: string, gameMode?: "survival" | string, health?: number, hunger?: number, lastOnline: Date | null};
-interface Player extends PartialPlayer {
-    coordinates: [number, number, number];
-    ping: number;
-}
-
 screenManager.createScreen("loading", "Alt Manager", false, async function () {
     this.container.classList.add("flex", "justify-center", "items-center");
     const loader = document.createElement("div");
@@ -61,65 +60,13 @@ screenManager.createScreen("players", "Alt Manager", true, async function () {
     grid.classList.add("grid", "grid-cols-1", "sm:grid-cols-2", "md:grid-cols-3", "lg:grid-cols-4", "gap-8");
     container.appendChild(grid);
 
-    // TODO: Fetch data from API
-    const players: PartialPlayer[] = [
-        {
-            uuid: "853c80ef3c3749fdaa49938b674adae6",
-            name: "Player1",
-            status: "online",
-            version: "1.16.5",
-            server: "play.hypixel.net",
-            gameMode: "survival",
-            health: 20,
-            hunger: 1.4,
-            lastOnline: new Date()
-        },
-        {
-            uuid: "853c80ef3c3749fdaa49938b674adae0",
-            name: "Player2",
-            status: "online",
-            version: "1.19.4",
-            server: "play.someserver.com",
-            gameMode: "survival",
-            health: 9,
-            hunger: 17,
-            lastOnline: new Date()
-        },
-        {
-            uuid: "853c80ef3c3749fdaa49938b674adae1",
-            name: "Player3",
-            status: "online",
-            version: "1.19.2",
-            server: "127.0.0.1:25530",
-            gameMode: "creative",
-            lastOnline: new Date()
-        },
-        {
-            uuid: "853c80ef3c3749fdaa49938b674adae2",
-            name: "Player4",
-            status: "online",
-            version: "1.8.9",
-            server: "localhost:25565",
-            gameMode: "survival",
-            health: 0,
-            hunger: 0,
-            lastOnline: new Date()
-        },
-        {
-            uuid: "853c80ef3c3749fdaa49938b674adae3",
-            name: "Player5",
-            status: "offline",
-            lastOnline: new Date(Date.now() - 1000 * 60 * 60 * 2.321)
-        },
-        {
-            uuid: "853c80ef3c3749fdaa49938b674adae4",
-            name: "Player6",
-            status: "offline",
-            lastOnline: null
-        }
-    ];
+    const players = await client.listPlayers();
 
-    const renderPlayerCard = (card: HTMLDivElement, player: PartialPlayer) => {
+    const renderPlayerCard = (player: AltManager.OfflinePlayer | AltManager.Player) => {
+        const onlinePlayer = player.online ? player : null;
+        const offlinePlayer = player.online ? player.offlinePlayer : player;
+        const card = grid.querySelector(`[data-id="${offlinePlayer.id}"]`) as HTMLDivElement | null;
+        if (!card) return;
         let nameContainer = card.querySelector(":scope > div:nth-child(1)");
         if (!nameContainer) {
             nameContainer = document.createElement("div");
@@ -132,7 +79,7 @@ screenManager.createScreen("players", "Alt Manager", true, async function () {
             name.classList.add("text-white", "font-medium");
             nameContainer.appendChild(name);
         }
-        name.textContent = player.name;
+        name.textContent = onlinePlayer?.username ?? offlinePlayer.name;
 
         let checkboxLabel = card.querySelector("label");
         if (!checkboxLabel) {
@@ -153,8 +100,6 @@ screenManager.createScreen("players", "Alt Manager", true, async function () {
             card.appendChild(statusContainer);
         }
 
-        const status: "online" | "dead" | "offline" = player.status === "online" ? (player.health === 0 ? "dead" : "online") : "offline";
-
         let statusIndicator = statusContainer.querySelector("div");
         if (!statusIndicator) {
             statusIndicator = document.createElement("div");
@@ -162,8 +107,8 @@ screenManager.createScreen("players", "Alt Manager", true, async function () {
             statusContainer.appendChild(statusIndicator);
         }
 
-        if (status === "online")  statusIndicator.innerHTML = `<div class="w-full h-full bg-green-500 rounded-full"></div><div class="absolute animate-ping top-0 w-full h-full bg-green-500 rounded-full"></div>`;
-        else statusIndicator.innerHTML = `<div class="w-full h-full ${status === "offline" ? "bg-red-500" : "bg-amber-500"} rounded-full"></div>`;
+        if (player.online)  statusIndicator.innerHTML = `<div class="w-full h-full bg-green-500 rounded-full"></div><div class="absolute animate-ping top-0 w-full h-full bg-green-500 rounded-full"></div>`;
+        else statusIndicator.innerHTML = `<div class="w-full h-full ${!player.online ? "bg-red-500" : "bg-amber-500"} rounded-full"></div>`;
 
         let statusText = statusContainer.querySelector("p");
         if (!statusText) {
@@ -172,8 +117,8 @@ screenManager.createScreen("players", "Alt Manager", true, async function () {
             statusContainer.appendChild(statusText);
         }
 
-        if (status === "offline") statusText.textContent = "Offline";
-        else statusText.textContent = `${status === "online" ? "Online" : "Dead"} · ${player.version} · ${player.server}`;
+        if (!player.online) statusText.textContent = "Offline";
+        else statusText.textContent = `${player.online ? "Online" : "Dead"} · ${player.version} · ${player.server}`;
 
         let specialContainer = card.querySelector(":scope > div:nth-child(3)");
         if (!specialContainer) {
@@ -181,11 +126,13 @@ screenManager.createScreen("players", "Alt Manager", true, async function () {
             card.appendChild(specialContainer);
         }
 
-        if (player.gameMode === "creative" || player.status === "offline") {
+        if (!player.online || player.gameMode === "creative") {
             specialContainer.classList.add("flex", "h-16");
-            specialContainer.innerHTML = `<p class="m-auto text-neutral-400 text-sm">${player.status === "offline" ? `Last online: ${player.lastOnline ? timeFormat(player.lastOnline, true) : "never"}` : "Creative mode"}</p>`;
+            specialContainer.innerHTML = `<p class="m-auto text-neutral-400 text-sm">${!player.online ? `Last online: ${player.lastOnline ? timeFormat(player.lastOnline, true) : "never"}` : "Creative mode"}</p>`;
         }
-        else if (player.status === "online") {
+        else if (player.online) {
+            specialContainer.innerHTML = "";
+            specialContainer.classList.remove("flex", "h-16");
             specialContainer.classList.add("flex", "flex-col", "mt-4", "space-y-2");
 
             let healthContainer = specialContainer.querySelector(":scope > div:nth-child(1)");
@@ -255,11 +202,20 @@ screenManager.createScreen("players", "Alt Manager", true, async function () {
         }
     }
 
-    for (const player of players) {
+    const createPlayerCard = (player: AltManager.OfflinePlayer | AltManager.Player) => {
         const card = document.createElement("div");
-        card.dataset.uuid = player.uuid;
+        const render = () => renderPlayerCard(player);
+        const renderOnline = async () => {
+            if (!player.online) player = await client.getPlayer(player.id);
+            renderPlayerCard(player);
+        };
+        const renderOffline = () => {
+            if (player.online) player = player.offlinePlayer;
+            renderPlayerCard(player)
+        };
+        card.dataset.id = player.online ? player.offlinePlayer.id : player.id;
         card.classList.add("bg-neutral-900", "rounded-2xl", "px-4", "py-3", "border", "border-transparent", "ring-1", "ring-inset", "ring-white/5", "hover:ring-white/20", "cursor-pointer");
-        renderPlayerCard(card, player);
+        renderPlayerCard(player);
         card.addEventListener("click", e => {
             if (e.ctrlKey) {
                 (card.querySelector("input[type=checkbox]") as HTMLInputElement).checked = !(card.querySelector("input[type=checkbox]") as HTMLInputElement).checked;
@@ -268,8 +224,31 @@ screenManager.createScreen("players", "Alt Manager", true, async function () {
             }
             screenManager.open("player", player);
         });
+
+        this.setTimeout(render, 1000);
+
+        const deleteCard = () => {
+            card.remove();
+            selectionToastRender();
+            client.off("playerConnect", renderOnline);
+            client.off("playerDisconnect", renderOffline);
+            client.off("playerDelete", deleteCard);
+        };
+
+        client.on("playerConnect", renderOnline);
+        client.on("playerDisconnect", renderOffline);
+        client.on("playerDelete", deleteCard);
+
         grid.appendChild(card);
+        render();
     }
+
+    for (const player of players) createPlayerCard(player);
+    client.on("playerCreate", async (id: AltManager.PlayerId) => {
+        const player = await client.getPlayer(id);
+        if (!player) return;
+        createPlayerCard(player);
+    });
 
     const emptyState = document.createElement("div");
     emptyState.classList.add("rounded-2xl", "flex", "min-h-[8rem]", "py-1", "border-2", "border-dashed", "border-neutral-800", "cursor-pointer", "font-medium", "text-neutral-600", "hover:text-neutral-400", "hover:border-neutral-600");
@@ -290,7 +269,7 @@ screenManager.createScreen("players", "Alt Manager", true, async function () {
     selectionToastDeselect.classList.add("text-blue-300", "hover:text-blue-400", "text-sm", "font-medium");
     selectionToastDeselect.innerHTML = "Deselect";
     selectionToastDeselect.addEventListener("click", () => {
-        (grid.querySelectorAll("[data-uuid] input[type=checkbox]:checked") as NodeListOf<HTMLInputElement>).forEach(b => b.checked = false);
+        (grid.querySelectorAll("[data-id] input[type=checkbox]:checked") as NodeListOf<HTMLInputElement>).forEach(b => b.checked = false);
         selectionToastRender();
     });
     selectionToastBody.appendChild(selectionToastDeselect);
@@ -299,19 +278,19 @@ screenManager.createScreen("players", "Alt Manager", true, async function () {
     selectionToastSelectAll.classList.add("text-blue-300", "hover:text-blue-400", "text-sm", "font-medium");
     selectionToastSelectAll.innerHTML = "Select All";
     selectionToastSelectAll.addEventListener("click", () => {
-        (grid.querySelectorAll("[data-uuid] input[type=checkbox]") as NodeListOf<HTMLInputElement>).forEach(b => b.checked = true);
+        (grid.querySelectorAll("[data-id] input[type=checkbox]") as NodeListOf<HTMLInputElement>).forEach(b => b.checked = true);
         selectionToastRender();
     });
     selectionToastBody.appendChild(selectionToastSelectAll);
 
     const selectionToastRemove = selectionToastContainer.querySelector(":scope > div > div > div > button")!;
     selectionToastRemove.addEventListener("click", () => {
-        (grid.querySelectorAll("[data-uuid] input[type=checkbox]:checked") as NodeListOf<HTMLInputElement>).forEach(b => b.closest("[data-uuid]")!.remove());
+        (grid.querySelectorAll("[data-id] input[type=checkbox]:checked") as NodeListOf<HTMLInputElement>).forEach(b => b.closest("[data-id]")!.remove());
         selectionToastRender();
     });
 
     const selectionToastRender = () => {
-        const selected = [...grid.querySelectorAll("[data-uuid] input[type=checkbox]:checked")].map(e => e.closest("[data-uuid]"));
+        const selected = [...grid.querySelectorAll("[data-id] input[type=checkbox]:checked")].map(e => e.closest("[data-id]"));
         if (selected.length === 0) {
             selectionToastContainer.classList.add("hidden");
         }
@@ -323,9 +302,9 @@ screenManager.createScreen("players", "Alt Manager", true, async function () {
 
     KeyboardShortcuts.getInstance().register([["ctrl", "a"]], () => {
         // if all are selected, deselect all. otherwise, select all
-        const selected = [...grid.querySelectorAll("[data-uuid] input[type=checkbox]:checked")].map(e => e.closest("[data-uuid]"));
-        if (selected.length === players.length) (grid.querySelectorAll("[data-uuid] input[type=checkbox]:checked") as NodeListOf<HTMLInputElement>).forEach(b => b.checked = false);
-        else (grid.querySelectorAll("[data-uuid] input[type=checkbox]") as NodeListOf<HTMLInputElement>).forEach(b => b.checked = true);
+        const selected = [...grid.querySelectorAll("[data-id] input[type=checkbox]:checked")].map(e => e.closest("[data-id]"));
+        if (selected.length === players.length) (grid.querySelectorAll("[data-id] input[type=checkbox]:checked") as NodeListOf<HTMLInputElement>).forEach(b => b.checked = false);
+        else (grid.querySelectorAll("[data-id] input[type=checkbox]") as NodeListOf<HTMLInputElement>).forEach(b => b.checked = true);
         selectionToastRender();
     }, "Select all players", "players");
 });
@@ -335,15 +314,8 @@ screenManager.createScreen("settings", "Alt Manager | Settings", true, async fun
     this.container.appendChild(navigation.element);
 });
 
-screenManager.createScreen("player", "Alt Manager", true, async function (p: PartialPlayer) {
-    // TODO: Fetch data from API
-    const player: Player = Object.assign(p, {
-        coordinates: [213, -13, -2334],
-        ping: 12
-    }) as Player;
-
-
-    document.title += ` | ${player.name}`;
+screenManager.createScreen("player", "Alt Manager", true, async function (player: AltManager.OfflinePlayer | AltManager.Player) {
+    document.title += ` | ${player.online ? player.username : player.name}`;
     const nav = navigation.clone();
     nav.activate(-1);
     nav.element.querySelector(":scope > div")!.classList.remove("max-w-7xl");
@@ -363,7 +335,7 @@ screenManager.createScreen("player", "Alt Manager", true, async function (p: Par
 
     const headerProfile = document.createElement("div");
     headerProfile.classList.add("flex", "items-center", "space-x-6");
-    headerProfile.innerHTML = `<img alt="${player.name}" class="w-16 h-16 rounded-lg bg-neutral-800" src="https://crafatar.com/avatars/${player.uuid}?size=100">`;
+    headerProfile.innerHTML = `<img alt="${player.online ? player.username : player.name}" class="w-16 h-16 rounded-lg bg-neutral-800" src="https://crafatar.com/avatars/${player.online ? player.uuid : "00000000000000000000000000000000"}?size=100">`;
     header.appendChild(headerProfile);
 
     const headerProfileDetails = document.createElement("div");
@@ -371,7 +343,7 @@ screenManager.createScreen("player", "Alt Manager", true, async function (p: Par
 
     const title = document.createElement("h1");
     title.classList.add("text-white", "font-bold", "text-xl");
-    title.innerText = player.name;
+    title.innerText = player.online ? player.username : player.name;
     headerProfileDetails.appendChild(title);
 
     const headerProfileDetailsStatus = document.createElement("div");
@@ -380,14 +352,14 @@ screenManager.createScreen("player", "Alt Manager", true, async function (p: Par
 
     const headerProfileDetailsStatusIndicator = document.createElement("div");
     headerProfileDetailsStatusIndicator.classList.add("w-2", "h-2", "shrink-0", "relative");
-    if (player.status === "online") headerProfileDetailsStatusIndicator.innerHTML = `<div class="w-full h-full bg-green-500 rounded-full"></div><div class="absolute animate-ping top-0 w-full h-full bg-green-500 rounded-full"></div>`;
-    else headerProfileDetailsStatusIndicator.innerHTML = `<div class="w-full h-full ${player.status === "offline" ? "bg-red-500" : "bg-amber-500"} rounded-full"></div>`;
+    if (player.online) headerProfileDetailsStatusIndicator.innerHTML = `<div class="w-full h-full bg-green-500 rounded-full"></div><div class="absolute animate-ping top-0 w-full h-full bg-green-500 rounded-full"></div>`;
+    else headerProfileDetailsStatusIndicator.innerHTML = `<div class="w-full h-full ${!player.online ? "bg-red-500" : "bg-amber-500"} rounded-full"></div>`;
     headerProfileDetailsStatus.appendChild(headerProfileDetailsStatusIndicator);
 
     const headerProfileDetailsStatusText = document.createElement("p");
     headerProfileDetailsStatusText.classList.add("text-neutral-400", "text-sm", "truncate");
-    if (player.status === "offline") headerProfileDetailsStatusText.textContent = `Offline · Last online ${player.lastOnline ? timeFormat(player.lastOnline) : "never"}`;
-    else headerProfileDetailsStatusText.textContent = `${player.status === "online" ? "Online" : "Dead"} · ${player.version} · ${player.server}`;
+    if (!player.online) headerProfileDetailsStatusText.textContent = `Offline · Last online ${player.lastOnline ? timeFormat(player.lastOnline) : "never"}`;
+    else headerProfileDetailsStatusText.textContent = `${player.health > 0 ? "Online" : "Dead"} · ${player.version} · ${player.server}`;
     headerProfileDetailsStatus.appendChild(headerProfileDetailsStatusText);
 
     const headerButtons = document.createElement("div");
@@ -406,10 +378,11 @@ screenManager.createScreen("player", "Alt Manager", true, async function (p: Par
     relogButton.classList.add("bg-blue-500", "text-white", "font-semibold", "text-sm", "px-3", "py-2", "rounded-lg", "border", "border-neutral-800", "hover:bg-blue-600", "focus:outline-none", "focus:ring-2", "focus:ring-offset-2", "focus:ring-offset-neutral-900", "focus:ring-blue-500");
     relogButton.textContent = "Relog";
 
-    if (player.status === "online") {
+    if (player.online) {
         headerButtons.appendChild(disconnectButton);
         headerButtons.appendChild(relogButton);
-    } else headerButtons.appendChild(connectButton);
+    }
+    else headerButtons.appendChild(connectButton);
 
     const topBox = document.createElement("div");
     topBox.classList.add("mt-12", "flex", "flex-col", "lg:flex-row", "gap-x-6", "gap-y-6");
@@ -478,14 +451,19 @@ screenManager.createScreen("player", "Alt Manager", true, async function (p: Par
     topBox.appendChild(playerDetailsCard);
 
     const playerDetailsTopBox = document.createElement("div");
-    playerDetailsTopBox.classList.add("flex", "flex-col", "space-y-3");
+    playerDetailsTopBox.classList.add("flex", "flex-col", "gap-y-3");
     playerDetailsCard.appendChild(playerDetailsTopBox);
 
     const playerDetailsTopBoxServer = document.createElement("div");
     playerDetailsTopBoxServer.classList.add("flex", "gap-x-3", "group", "cursor-pointer");
-    playerDetailsTopBoxServer.innerHTML = `<div class="text-neutral-500"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 group-hover:hidden"><path d="M4.632 3.533A2 2 0 016.577 2h6.846a2 2 0 011.945 1.533l1.976 8.234A3.489 3.489 0 0016 11.5H4c-.476 0-.93.095-1.344.267l1.976-8.234z" /><path fill-rule="evenodd" d="M4 13a2 2 0 100 4h12a2 2 0 100-4H4zm11.24 2a.75.75 0 01.75-.75H16a.75.75 0 01.75.75v.01a.75.75 0 01-.75.75h-.01a.75.75 0 01-.75-.75V15zm-2.25-.75a.75.75 0 00-.75.75v.01c0 .414.336.75.75.75H13a.75.75 0 00.75-.75V15a.75.75 0 00-.75-.75h-.01z" clip-rule="evenodd" /></svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 hidden group-hover:block"><path fill-rule="evenodd" d="M15.988 3.012A2.25 2.25 0 0118 5.25v6.5A2.25 2.25 0 0115.75 14H13.5v-3.379a3 3 0 00-.879-2.121l-3.12-3.121a3 3 0 00-1.402-.791 2.252 2.252 0 011.913-1.576A2.25 2.25 0 0112.25 1h1.5a2.25 2.25 0 012.238 2.012zM11.5 3.25a.75.75 0 01.75-.75h1.5a.75.75 0 01.75.75v.25h-3v-.25z" clip-rule="evenodd" /><path d="M3.5 6A1.5 1.5 0 002 7.5v9A1.5 1.5 0 003.5 18h7a1.5 1.5 0 001.5-1.5v-5.879a1.5 1.5 0 00-.44-1.06L8.44 6.439A1.5 1.5 0 007.378 6H3.5z" /></svg></div><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 hidden text-green-500"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" /></svg><p class="text-white text-sm font-mono leading-5">${player.server}</p>`
+    if (player.online) {
+        playerDetailsTopBoxServer.innerHTML = `<div class="text-neutral-500"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 group-hover:hidden"><path d="M4.632 3.533A2 2 0 016.577 2h6.846a2 2 0 011.945 1.533l1.976 8.234A3.489 3.489 0 0016 11.5H4c-.476 0-.93.095-1.344.267l1.976-8.234z" /><path fill-rule="evenodd" d="M4 13a2 2 0 100 4h12a2 2 0 100-4H4zm11.24 2a.75.75 0 01.75-.75H16a.75.75 0 01.75.75v.01a.75.75 0 01-.75.75h-.01a.75.75 0 01-.75-.75V15zm-2.25-.75a.75.75 0 00-.75.75v.01c0 .414.336.75.75.75H13a.75.75 0 00.75-.75V15a.75.75 0 00-.75-.75h-.01z" clip-rule="evenodd" /></svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 hidden group-hover:block"><path fill-rule="evenodd" d="M15.988 3.012A2.25 2.25 0 0118 5.25v6.5A2.25 2.25 0 0115.75 14H13.5v-3.379a3 3 0 00-.879-2.121l-3.12-3.121a3 3 0 00-1.402-.791 2.252 2.252 0 011.913-1.576A2.25 2.25 0 0112.25 1h1.5a2.25 2.25 0 012.238 2.012zM11.5 3.25a.75.75 0 01.75-.75h1.5a.75.75 0 01.75.75v.25h-3v-.25z" clip-rule="evenodd" /><path d="M3.5 6A1.5 1.5 0 002 7.5v9A1.5 1.5 0 003.5 18h7a1.5 1.5 0 001.5-1.5v-5.879a1.5 1.5 0 00-.44-1.06L8.44 6.439A1.5 1.5 0 007.378 6H3.5z" /></svg></div><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 hidden text-green-500"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" /></svg><p class="text-white text-sm font-mono leading-5">${player.server}</p>`
+        playerDetailsTopBoxServer.classList.remove("hidden");
+    }
+    else playerDetailsTopBoxServer.classList.add("hidden");
     playerDetailsTopBoxServer.addEventListener("click", () => {
-        navigator.clipboard.writeText(player.server!).then(() => {
+        if (!player.online) return;
+        navigator.clipboard.writeText(player.server).then(() => {
             playerDetailsTopBoxServer.querySelector(":scope > div")!.classList.add("hidden");
             playerDetailsTopBoxServer.querySelector(":scope > svg")!.classList.remove("hidden");
             setTimeout(() => {
@@ -498,9 +476,20 @@ screenManager.createScreen("player", "Alt Manager", true, async function (p: Par
 
     const playerDetailsTopBoxCoordinates = document.createElement("div");
     playerDetailsTopBoxCoordinates.classList.add("flex", "gap-x-3", "group", "cursor-pointer");
-    playerDetailsTopBoxCoordinates.innerHTML = `<div class="text-neutral-500"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 group-hover:hidden"><path fill-rule="evenodd" d="M9.69 18.933l.003.001C9.89 19.02 10 19 10 19s.11.02.308-.066l.002-.001.006-.003.018-.008a5.741 5.741 0 00.281-.14c.186-.096.446-.24.757-.433.62-.384 1.445-.966 2.274-1.765C15.302 14.988 17 12.493 17 9A7 7 0 103 9c0 3.492 1.698 5.988 3.355 7.584a13.731 13.731 0 002.273 1.765 11.842 11.842 0 00.976.544l.062.029.018.008.006.003zM10 11.25a2.25 2.25 0 100-4.5 2.25 2.25 0 000 4.5z" clip-rule="evenodd" /></svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 hidden group-hover:block"><path fill-rule="evenodd" d="M15.988 3.012A2.25 2.25 0 0118 5.25v6.5A2.25 2.25 0 0115.75 14H13.5v-3.379a3 3 0 00-.879-2.121l-3.12-3.121a3 3 0 00-1.402-.791 2.252 2.252 0 011.913-1.576A2.25 2.25 0 0112.25 1h1.5a2.25 2.25 0 012.238 2.012zM11.5 3.25a.75.75 0 01.75-.75h1.5a.75.75 0 01.75.75v.25h-3v-.25z" clip-rule="evenodd" /><path d="M3.5 6A1.5 1.5 0 002 7.5v9A1.5 1.5 0 003.5 18h7a1.5 1.5 0 001.5-1.5v-5.879a1.5 1.5 0 00-.44-1.06L8.44 6.439A1.5 1.5 0 007.378 6H3.5z" /></svg></div><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 hidden text-green-500"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" /></svg><p class="text-white text-sm font-mono leading-5"><span class="font-semibold">X:</span> ${player.coordinates[0].toLocaleString()} <span class="font-semibold">Y:</span> ${player.coordinates[1].toLocaleString()} <span class="font-semibold">Z:</span> ${player.coordinates[2].toLocaleString()}</p>`
+    if (player.online) {
+        const x = (Math.round(player.coordinates[0] * 100) / 100).toLocaleString();
+        const y = (Math.round(player.coordinates[1] * 100) / 100).toLocaleString();
+        const z = (Math.round(player.coordinates[2] * 100) / 100).toLocaleString();
+        playerDetailsTopBoxCoordinates.innerHTML = `<div class="text-neutral-500"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 group-hover:hidden"><path fill-rule="evenodd" d="M9.69 18.933l.003.001C9.89 19.02 10 19 10 19s.11.02.308-.066l.002-.001.006-.003.018-.008a5.741 5.741 0 00.281-.14c.186-.096.446-.24.757-.433.62-.384 1.445-.966 2.274-1.765C15.302 14.988 17 12.493 17 9A7 7 0 103 9c0 3.492 1.698 5.988 3.355 7.584a13.731 13.731 0 002.273 1.765 11.842 11.842 0 00.976.544l.062.029.018.008.006.003zM10 11.25a2.25 2.25 0 100-4.5 2.25 2.25 0 000 4.5z" clip-rule="evenodd" /></svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 hidden group-hover:block"><path fill-rule="evenodd" d="M15.988 3.012A2.25 2.25 0 0118 5.25v6.5A2.25 2.25 0 0115.75 14H13.5v-3.379a3 3 0 00-.879-2.121l-3.12-3.121a3 3 0 00-1.402-.791 2.252 2.252 0 011.913-1.576A2.25 2.25 0 0112.25 1h1.5a2.25 2.25 0 012.238 2.012zM11.5 3.25a.75.75 0 01.75-.75h1.5a.75.75 0 01.75.75v.25h-3v-.25z" clip-rule="evenodd" /><path d="M3.5 6A1.5 1.5 0 002 7.5v9A1.5 1.5 0 003.5 18h7a1.5 1.5 0 001.5-1.5v-5.879a1.5 1.5 0 00-.44-1.06L8.44 6.439A1.5 1.5 0 007.378 6H3.5z" /></svg></div><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 hidden text-green-500"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" /></svg><p class="text-white text-sm font-mono leading-5"><span class="font-semibold">X:</span> ${x} <span class="font-semibold">Y:</span> ${y} <span class="font-semibold">Z:</span> ${z}</p>`
+        playerDetailsTopBoxCoordinates.classList.remove("hidden");
+    }
+    else playerDetailsTopBoxCoordinates.classList.add("hidden");
     playerDetailsTopBoxCoordinates.addEventListener("click", () => {
-        navigator.clipboard.writeText(`${player.coordinates[0]} ${player.coordinates[1]} ${player.coordinates[2]}`).then(() => {
+        if (!player.online) return;
+        const x = (Math.round(player.coordinates[0] * 100) / 100).toString();
+        const y = (Math.round(player.coordinates[1] * 100) / 100).toString();
+        const z = (Math.round(player.coordinates[2] * 100) / 100).toString();
+        navigator.clipboard.writeText(`${x} ${y} ${z}`).then(() => {
             playerDetailsTopBoxCoordinates.querySelector(":scope > div")!.classList.add("hidden");
             playerDetailsTopBoxCoordinates.querySelector(":scope > svg")!.classList.remove("hidden");
             setTimeout(() => {
@@ -519,12 +508,16 @@ screenManager.createScreen("player", "Alt Manager", true, async function (p: Par
     const clock = document.createElement("p");
     clock.classList.add("text-white", "text-sm", "font-mono", "leading-5");
     const clockTick = () => {
-        if (!player.lastOnline) {
-            clock.innerText = "never";
-            return;
+        if (player.online) {
+            const lastOnline = player.offlinePlayer.lastOnline;
+            if (!lastOnline) {
+                clock.innerText = "never";
+                return;
+            }
+            const interval = Date.now() - lastOnline.getTime();
+            clock.innerText = `${Math.floor(interval / 1000 / 60 / 60).toString()}:${Math.floor(interval / 1000 / 60).toString().padStart(2, "0")}:${Math.floor(interval / 1000).toString().padStart(2, "0")}`;
         }
-        const interval = Date.now() - player.lastOnline.getTime();
-        clock.innerText = `${Math.floor(interval / 1000 / 60 / 60).toString()}:${Math.floor(interval / 1000 / 60).toString().padStart(2, "0")}:${Math.floor(interval / 1000).toString().padStart(2, "0")}`;
+        else clock.innerText = `Last online: ${!player.lastOnline ? "never" : timeFormat(player.lastOnline, true)}`;
     }
     setStartSecondInterval(clockTick);
     clockTick();
@@ -532,16 +525,26 @@ screenManager.createScreen("player", "Alt Manager", true, async function (p: Par
 
     const playerDetailsTopBoxVersion = document.createElement("div");
     playerDetailsTopBoxVersion.classList.add("flex", "gap-x-3");
-    playerDetailsTopBoxVersion.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 text-neutral-500"><path fill-rule="evenodd" d="M10.362 1.093a.75.75 0 00-.724 0L2.523 5.018 10 9.143l7.477-4.125-7.115-3.925zM18 6.443l-7.25 4v8.25l6.862-3.786A.75.75 0 0018 14.25V6.443zm-8.75 12.25v-8.25l-7.25-4v7.807a.75.75 0 00.388.657l6.862 3.786z" clip-rule="evenodd" /></svg><p class="text-white text-sm">${player.version}</p>`;
+    if (player.online) {
+        playerDetailsTopBoxVersion.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 text-neutral-500"><path fill-rule="evenodd" d="M10.362 1.093a.75.75 0 00-.724 0L2.523 5.018 10 9.143l7.477-4.125-7.115-3.925zM18 6.443l-7.25 4v8.25l6.862-3.786A.75.75 0 0018 14.25V6.443zm-8.75 12.25v-8.25l-7.25-4v7.807a.75.75 0 00.388.657l6.862 3.786z" clip-rule="evenodd" /></svg><p class="text-white text-sm">${player.version}</p>`;
+        playerDetailsTopBoxVersion.classList.remove("hidden");
+    }
+    else playerDetailsTopBoxVersion.classList.add("hidden");
     playerDetailsTopBox.appendChild(playerDetailsTopBoxVersion);
 
     const playerDetailsTopBoxPing = document.createElement("div");
     playerDetailsTopBoxPing.classList.add("flex", "gap-x-3");
-    playerDetailsTopBoxPing.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 text-neutral-500"><path d="M15.5 2A1.5 1.5 0 0014 3.5v13a1.5 1.5 0 001.5 1.5h1a1.5 1.5 0 001.5-1.5v-13A1.5 1.5 0 0016.5 2h-1zM9.5 6A1.5 1.5 0 008 7.5v9A1.5 1.5 0 009.5 18h1a1.5 1.5 0 001.5-1.5v-9A1.5 1.5 0 0010.5 6h-1zM3.5 10A1.5 1.5 0 002 11.5v5A1.5 1.5 0 003.5 18h1A1.5 1.5 0 006 16.5v-5A1.5 1.5 0 004.5 10h-1z" /></svg><p class="text-white text-sm">${player.ping}ms</p>`;
+    if (player.online) {
+        playerDetailsTopBoxPing.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 text-neutral-500"><path d="M15.5 2A1.5 1.5 0 0014 3.5v13a1.5 1.5 0 001.5 1.5h1a1.5 1.5 0 001.5-1.5v-13A1.5 1.5 0 0016.5 2h-1zM9.5 6A1.5 1.5 0 008 7.5v9A1.5 1.5 0 009.5 18h1a1.5 1.5 0 001.5-1.5v-9A1.5 1.5 0 0010.5 6h-1zM3.5 10A1.5 1.5 0 002 11.5v5A1.5 1.5 0 003.5 18h1A1.5 1.5 0 006 16.5v-5A1.5 1.5 0 004.5 10h-1z" /></svg><p class="text-white text-sm">${player.ping}ms</p>`;
+        playerDetailsTopBoxPing.classList.remove("hidden");
+    }
+    else playerDetailsTopBoxPing.classList.add("hidden");
     playerDetailsTopBox.appendChild(playerDetailsTopBoxPing);
 
     const playerDetailsBottomBox = document.createElement("div");
-    playerDetailsBottomBox.classList.add("flex", "flex-col", "space-y-3", "mt-6");
+    playerDetailsBottomBox.classList.add("flex", "flex-col", "gap-y-3", "mt-6");
+    if (player.online) playerDetailsBottomBox.classList.remove("hidden");
+    else playerDetailsBottomBox.classList.add("hidden");
     playerDetailsCard.appendChild(playerDetailsBottomBox);
 
     const playerDetailsBottomBoxMetrics = document.createElement("div");
@@ -574,24 +577,26 @@ screenManager.createScreen("player", "Alt Manager", true, async function (p: Par
     hungerProgress.classList.add("h-full", "rounded-full", "transition-all", "ease-in-out");
     hungerBar.appendChild(hungerProgress);
 
-    const colors: Record<string, string> = {
-        100: "bg-green-500",
-        50: "bg-amber-500",
-        25: "bg-red-500"
-    };
+    if (player.online) {
+        const colors: Record<string, string> = {
+            100: "bg-green-500",
+            50: "bg-amber-500",
+            25: "bg-red-500"
+        };
 
-    const healthPercentage = Math.round(player.health! / 20 * 100);
-    const hungerPercentage = Math.round(player.hunger! / 20 * 100);
-    const minColors = Object.keys(colors).map(Number).sort((a, b) => a - b);
-    const healthColor = colors[minColors.find(color => healthPercentage <= color)!]!;
-    const hungerColor = colors[minColors.find(color => hungerPercentage <= color)!]!;
-    healthProgress.classList.remove(...Object.values(colors));
-    healthProgress.classList.add(healthColor);
-    healthProgress.style.width = `${healthPercentage}%`;
+        const healthPercentage = Math.round(player.health / 20 * 100);
+        const hungerPercentage = Math.round(player.hunger / 20 * 100);
+        const minColors = Object.keys(colors).map(Number).sort((a, b) => a - b);
+        const healthColor = colors[minColors.find(color => healthPercentage <= color)!]!;
+        const hungerColor = colors[minColors.find(color => hungerPercentage <= color)!]!;
+        healthProgress.classList.remove(...Object.values(colors));
+        healthProgress.classList.add(healthColor);
+        healthProgress.style.width = `${healthPercentage}%`;
 
-    hungerProgress.classList.remove(...Object.values(colors));
-    hungerProgress.classList.add(hungerColor);
-    hungerProgress.style.width = `${hungerPercentage}%`;
+        hungerProgress.classList.remove(...Object.values(colors));
+        hungerProgress.classList.add(hungerColor);
+        hungerProgress.style.width = `${hungerPercentage}%`;
+    }
 
     const playButton = document.createElement("button");
     playButton.classList.add("bg-blue-500", "text-white", "font-semibold", "px-3", "py-2", "group", "flex", "rounded-xl", "border", "border-neutral-800", "hover:bg-blue-600", "focus:outline-none", "focus:ring-2", "focus:ring-offset-2", "focus:ring-offset-neutral-900", "focus:ring-blue-500");
