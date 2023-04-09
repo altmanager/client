@@ -22,6 +22,22 @@ const timeFormat = (date: Date, ago?: boolean) => {
     return `${date.toLocaleDateString(undefined, {day: "numeric", month: "short"})}`;
 };
 
+const durationFormat = (ms: number): string => {
+    let seconds = Math.floor(ms / 1000);
+    const hours = Math.floor(seconds / 3600);
+    seconds %= 3600;
+    const minutes = Math.floor(seconds / 60);
+    seconds %= 60;
+    let result = "";
+    if (hours > 0) result += hours + ":";
+    if (minutes < 10) result += "0";
+    result += minutes + ":";
+    if (seconds < 10) result += "0";
+    result += seconds;
+    return result;
+}
+
+
 const setStartSecondInterval = (callback: () => void) => {
     const currentMs = new Date().getMilliseconds();
     const delay = 1000 - currentMs;
@@ -515,7 +531,7 @@ screenManager.createScreen("player", "Alt Manager", true, async function (player
                 return;
             }
             const interval = Date.now() - lastOnline.getTime();
-            clock.innerText = `${Math.floor(interval / 1000 / 60 / 60).toString()}:${Math.floor(interval / 1000 / 60).toString().padStart(2, "0")}:${Math.floor(interval / 1000).toString().padStart(2, "0")}`;
+            clock.innerText = durationFormat(interval);
         }
         else clock.innerText = `Last online: ${!player.lastOnline ? "never" : timeFormat(player.lastOnline, true)}`;
     }
