@@ -352,7 +352,7 @@ screenManager.createScreen("player", "Alt Manager", true, async function (player
 
     const headerProfile = document.createElement("div");
     headerProfile.classList.add("flex", "items-center", "space-x-6");
-    headerProfile.innerHTML = `<img alt="${player.online ? player.username : player.name}" class="w-16 h-16 rounded-lg bg-neutral-800" src="https://crafatar.com/avatars/${player.online ? player.uuid : "00000000000000000000000000000000"}?size=100">`;
+        headerProfile.innerHTML = `<img alt="${player.online ? player.username : player.name}" class="w-16 h-16 rounded-lg bg-neutral-800 pointer-events-none" src="https://crafatar.com/avatars/${player.online ? player.uuid : "00000000000000000000000000000000"}?size=100">`;
     header.appendChild(headerProfile);
 
     const headerProfileDetails = document.createElement("div");
