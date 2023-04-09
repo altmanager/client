@@ -76,6 +76,11 @@ screenManager.createScreen("players", "Alt Manager", true, async function () {
     grid.classList.add("grid", "grid-cols-1", "sm:grid-cols-2", "md:grid-cols-3", "lg:grid-cols-4", "gap-8");
     container.appendChild(grid);
 
+    const emptyState = document.createElement("div");
+    emptyState.classList.add("rounded-2xl", "flex", "min-h-[8rem]", "py-1", "border-2", "border-dashed", "border-neutral-800", "cursor-pointer", "font-medium", "text-neutral-600", "hover:text-neutral-400", "hover:border-neutral-600");
+    emptyState.innerHTML = `<div class="m-auto flex space-x-3"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6"><path fill-rule="evenodd" d="M12 3.75a.75.75 0 01.75.75v6.75h6.75a.75.75 0 010 1.5h-6.75v6.75a.75.75 0 01-1.5 0v-6.75H4.5a.75.75 0 010-1.5h6.75V4.5a.75.75 0 01.75-.75z" clip-rule="evenodd" /></svg><p>Add new</p></div>`;
+    grid.appendChild(emptyState);
+
     const players = await client.listPlayers();
 
     const renderPlayerCard = (player: AltManager.OfflinePlayer | AltManager.Player) => {
@@ -244,7 +249,8 @@ screenManager.createScreen("players", "Alt Manager", true, async function () {
             screenManager.open("player", player);
         });
 
-        const deleteCard = () => {
+        const deleteCard = (id: AltManager.PlayerId) => {
+            if (id !== (player.online ? player.offlinePlayer.id : player.id)) return;
             card.remove();
             selectionToastRender();
             client.off("playerConnect", renderOnline);
@@ -256,7 +262,7 @@ screenManager.createScreen("players", "Alt Manager", true, async function () {
         client.on("playerDisconnect", renderOffline);
         client.on("playerDelete", deleteCard);
 
-        grid.appendChild(card);
+        emptyState.before(card);
         render();
     }
 
@@ -266,11 +272,6 @@ screenManager.createScreen("players", "Alt Manager", true, async function () {
         if (!player) return;
         createPlayerCard(player);
     });
-
-    const emptyState = document.createElement("div");
-    emptyState.classList.add("rounded-2xl", "flex", "min-h-[8rem]", "py-1", "border-2", "border-dashed", "border-neutral-800", "cursor-pointer", "font-medium", "text-neutral-600", "hover:text-neutral-400", "hover:border-neutral-600");
-    emptyState.innerHTML = `<div class="m-auto flex space-x-3"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6"><path fill-rule="evenodd" d="M12 3.75a.75.75 0 01.75.75v6.75h6.75a.75.75 0 010 1.5h-6.75v6.75a.75.75 0 01-1.5 0v-6.75H4.5a.75.75 0 010-1.5h6.75V4.5a.75.75 0 01.75-.75z" clip-rule="evenodd" /></svg><p>Add new</p></div>`;
-    grid.appendChild(emptyState);
 
     const selectionToastContainer = document.createElement("div");
     selectionToastContainer.innerHTML = `<div class="h-32"></div><div class="fixed bottom-0 inset-x-0"><div class="max-w-3xl mx-auto px-4 md:px-6 lg:px-8 py-8"><div class="px-6 py-4 bg-neutral-900 rounded-xl flex justify-between items-center"><div class="flex space-x-3 items-center"></div><button class="text-red-400 hover:text-red-500">Remove</button></div></div></div>`;
