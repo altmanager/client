@@ -142,9 +142,9 @@ screenManager.createScreen("players", "Alt Manager", true, async function () {
             card.appendChild(specialContainer);
         }
 
-        if (!player.online || player.gameMode === "creative") {
+        if (!player.online || ["creative", "spectator"].includes(player.gameMode)) {
             specialContainer.classList.add("flex", "h-16");
-            specialContainer.innerHTML = `<p class="m-auto text-neutral-400 text-sm">${!player.online ? `Last online: ${player.lastOnline ? timeFormat(player.lastOnline, true) : "never"}` : "Creative mode"}</p>`;
+            specialContainer.innerHTML = `<p class="m-auto text-neutral-400 text-sm">${!player.online ? `Last online: ${player.lastOnline ? timeFormat(player.lastOnline, true) : "never"}` : `${player.gameMode[0]!.toUpperCase() + player.gameMode.slice(1)} mode`}</p>`;
         }
         else if (player.online) {
             specialContainer.innerHTML = "";
@@ -220,14 +220,17 @@ screenManager.createScreen("players", "Alt Manager", true, async function () {
 
     const createPlayerCard = (player: AltManager.OfflinePlayer | AltManager.Player) => {
         const card = document.createElement("div");
-        const render = () => renderPlayerCard(player);
+        const render = () => {
+            renderPlayerCard(player);
+            this.setTimeout(render, 1000);
+        }
         const renderOnline = async () => {
             if (!player.online) player = await client.getPlayer(player.id);
-            renderPlayerCard(player);
+            render();
         };
         const renderOffline = () => {
             if (player.online) player = player.offlinePlayer;
-            renderPlayerCard(player)
+            render();
         };
         card.dataset.id = player.online ? player.offlinePlayer.id : player.id;
         card.classList.add("bg-neutral-900", "rounded-2xl", "px-4", "py-3", "border", "border-transparent", "ring-1", "ring-inset", "ring-white/5", "hover:ring-white/20", "cursor-pointer");
@@ -240,8 +243,6 @@ screenManager.createScreen("players", "Alt Manager", true, async function () {
             }
             screenManager.open("player", player);
         });
-
-        this.setTimeout(render, 1000);
 
         const deleteCard = () => {
             card.remove();
@@ -375,7 +376,7 @@ screenManager.createScreen("player", "Alt Manager", true, async function (player
     const headerProfileDetailsStatusText = document.createElement("p");
     headerProfileDetailsStatusText.classList.add("text-neutral-400", "text-sm", "truncate");
     if (!player.online) headerProfileDetailsStatusText.textContent = `Offline · Last online ${player.lastOnline ? timeFormat(player.lastOnline) : "never"}`;
-    else headerProfileDetailsStatusText.textContent = `${player.health > 0 ? "Online" : "Dead"} · ${player.version} · ${player.server}`;
+    else headerProfileDetailsStatusText.textContent = player.health > 0 ? "Online" : "Dead";
     headerProfileDetailsStatus.appendChild(headerProfileDetailsStatusText);
 
     const headerButtons = document.createElement("div");
@@ -385,6 +386,9 @@ screenManager.createScreen("player", "Alt Manager", true, async function (player
     const disconnectButton = document.createElement("button");
     disconnectButton.classList.add("bg-neutral-800", "text-white", "font-semibold", "text-sm", "px-3", "py-2", "rounded-lg", "border", "border-neutral-700/50", "hover:bg-neutral-800/60", "focus:outline-none", "focus:ring-2", "focus:ring-offset-2", "focus:ring-offset-neutral-900", "focus:ring-blue-500");
     disconnectButton.textContent = "Disconnect";
+    disconnectButton.addEventListener("click", () => {
+        if (player.online) player.disconnect();
+    });
 
     const connectButton = document.createElement("button");
     connectButton.classList.add("bg-blue-500", "text-white", "font-semibold", "text-sm", "px-3", "py-2", "rounded-lg", "border", "border-neutral-800", "hover:bg-blue-600", "focus:outline-none", "focus:ring-2", "focus:ring-offset-2", "focus:ring-offset-neutral-900", "focus:ring-blue-500");
@@ -419,22 +423,30 @@ screenManager.createScreen("player", "Alt Manager", true, async function (player
 
     const terminalExpandButton = document.createElement("button");
     terminalExpandButton.classList.add("text-neutral-600", "hover:text-neutral-300");
-    terminalExpandButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5"><path d="M13.28 7.78l3.22-3.22v2.69a.75.75 0 001.5 0v-4.5a.75.75 0 00-.75-.75h-4.5a.75.75 0 000 1.5h2.69l-3.22 3.22a.75.75 0 001.06 1.06zM2 17.25v-4.5a.75.75 0 011.5 0v2.69l3.22-3.22a.75.75 0 011.06 1.06L4.56 16.5h2.69a.75.75 0 010 1.5h-4.5a.747.747 0 01-.75-.75zM12.22 13.28l3.22 3.22h-2.69a.75.75 0 000 1.5h4.5a.747.747 0 00.75-.75v-4.5a.75.75 0 00-1.5 0v2.69l-3.22-3.22a.75.75 0 10-1.06 1.06zM3.5 4.56l3.22 3.22a.75.75 0 001.06-1.06L4.56 3.5h2.69a.75.75 0 000-1.5h-4.5a.75.75 0 00-.75.75v4.5a.75.75 0 001.5 0V4.56z" /></svg>`;
+    terminalExpandButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5"><path d="M13.28 7.78l3.22-3.22v2.69a.75.75 0 001.5 0v-4.5a.75.75 0 00-.75-.75h-4.5a.75.75 0 000 1.5h2.69l-3.22 3.22a.75.75 0 001.06 1.06zM2 17.25v-4.5a.75.75 0 011.5 0v2.69l3.22-3.22a.75.75 0 011.06 1.06L4.56 16.5h2.69a.75.75 0 010 1.5h-4.5a.747.747 0 01-.75-.75zM12.22 13.28l3.22 3.22h-2.69a.75.75 0 000 1.5h4.5a.747.747 0 00.75-.75v-4.5a.75.75 0 00-1.5 0v2.69l-3.22-3.22a.75.75 0 10-1.06 1.06zM3.5 4.56l3.22 3.22a.75.75 0 001.06-1.06L4.56 3.5h2.69a.75.75 0 000-1.5h-4.5a.75.75 0 00-.75.75v4.5a.75.75 0 001.5 0V4.56z" /></svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 hidden"><path d="M3.28 2.22a.75.75 0 00-1.06 1.06L5.44 6.5H2.75a.75.75 0 000 1.5h4.5A.75.75 0 008 7.25v-4.5a.75.75 0 00-1.5 0v2.69L3.28 2.22zM13.5 2.75a.75.75 0 00-1.5 0v4.5c0 .414.336.75.75.75h4.5a.75.75 0 000-1.5h-2.69l3.22-3.22a.75.75 0 00-1.06-1.06L13.5 5.44V2.75zM3.28 17.78l3.22-3.22v2.69a.75.75 0 001.5 0v-4.5a.75.75 0 00-.75-.75h-4.5a.75.75 0 000 1.5h2.69l-3.22 3.22a.75.75 0 101.06 1.06zM13.5 14.56l3.22 3.22a.75.75 0 101.06-1.06l-3.22-3.22h2.69a.75.75 0 000-1.5h-4.5a.75.75 0 00-.75.75v4.5a.75.75 0 001.5 0v-2.69z" /></svg>`;
+    terminalExpandButton.addEventListener("click", () => {
+        ["relative", "fixed", "inset-0", "rounded-2xl", "border"].forEach(c => terminal.classList.toggle(c));
+        terminalExpandButton.querySelectorAll("svg").forEach(s => s.classList.toggle("hidden"));
+    });
     terminalButtons.appendChild(terminalExpandButton);
 
     const terminalText = document.createElement("div");
-    terminalText.classList.add("h-96", "overflow-auto", "text-neutral-200", "font-mono", "text-sm", "p-2");
+    terminalText.classList.add("min-h-[30rem]", "h-full", "overflow-auto", "text-neutral-200", "font-mono", "text-sm", "p-2", "select-text");
     terminal.appendChild(terminalText);
 
     const terminalInputContainer = document.createElement("form");
     terminalInputContainer.classList.add("border-t", "border-neutral-800", "relative");
     terminalInputContainer.addEventListener("submit", e => {
         e.preventDefault();
+        if (player.online) player.send(terminalInput.value);
+        let scroll = terminalText.scrollTop === (terminalText.scrollHeight - terminalText.offsetHeight);
         const p = document.createElement("p");
         p.textContent = terminalInput.value;
         terminalText.appendChild(p);
         terminalInput.value = "";
         changeTerminalInputIcon();
+        if (scroll)
+            terminalText.scrollTop = terminalText.scrollHeight;
     });
     terminal.appendChild(terminalInputContainer);
 
@@ -463,7 +475,7 @@ screenManager.createScreen("player", "Alt Manager", true, async function (player
     terminalInputContainer.appendChild(terminalInputSubmit);
 
     const playerDetailsCard = document.createElement("div");
-    playerDetailsCard.classList.add("rounded-2xl", "bg-neutral-800", "border", "border-neutral-700/50", "w-80", "shrink-0", "p-4", "flex", "flex-col", "justify-between");
+    playerDetailsCard.classList.add("rounded-2xl", "bg-neutral-800", "border", "border-neutral-700/50", "w-80", "shrink-0", "p-4", "flex", "flex-col", "justify-between", "h-max");
     topBox.appendChild(playerDetailsCard);
 
     const playerDetailsTopBox = document.createElement("div");
@@ -473,7 +485,7 @@ screenManager.createScreen("player", "Alt Manager", true, async function (player
     const playerDetailsTopBoxServer = document.createElement("div");
     playerDetailsTopBoxServer.classList.add("flex", "gap-x-3", "group", "cursor-pointer");
     if (player.online) {
-        playerDetailsTopBoxServer.innerHTML = `<div class="text-neutral-500"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 group-hover:hidden"><path d="M4.632 3.533A2 2 0 016.577 2h6.846a2 2 0 011.945 1.533l1.976 8.234A3.489 3.489 0 0016 11.5H4c-.476 0-.93.095-1.344.267l1.976-8.234z" /><path fill-rule="evenodd" d="M4 13a2 2 0 100 4h12a2 2 0 100-4H4zm11.24 2a.75.75 0 01.75-.75H16a.75.75 0 01.75.75v.01a.75.75 0 01-.75.75h-.01a.75.75 0 01-.75-.75V15zm-2.25-.75a.75.75 0 00-.75.75v.01c0 .414.336.75.75.75H13a.75.75 0 00.75-.75V15a.75.75 0 00-.75-.75h-.01z" clip-rule="evenodd" /></svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 hidden group-hover:block"><path fill-rule="evenodd" d="M15.988 3.012A2.25 2.25 0 0118 5.25v6.5A2.25 2.25 0 0115.75 14H13.5v-3.379a3 3 0 00-.879-2.121l-3.12-3.121a3 3 0 00-1.402-.791 2.252 2.252 0 011.913-1.576A2.25 2.25 0 0112.25 1h1.5a2.25 2.25 0 012.238 2.012zM11.5 3.25a.75.75 0 01.75-.75h1.5a.75.75 0 01.75.75v.25h-3v-.25z" clip-rule="evenodd" /><path d="M3.5 6A1.5 1.5 0 002 7.5v9A1.5 1.5 0 003.5 18h7a1.5 1.5 0 001.5-1.5v-5.879a1.5 1.5 0 00-.44-1.06L8.44 6.439A1.5 1.5 0 007.378 6H3.5z" /></svg></div><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 hidden text-green-500"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" /></svg><p class="text-white text-sm font-mono leading-5">${player.server}</p>`
+        playerDetailsTopBoxServer.innerHTML = `<div class="text-neutral-500"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 group-hover:hidden"><path d="M4.632 3.533A2 2 0 016.577 2h6.846a2 2 0 011.945 1.533l1.976 8.234A3.489 3.489 0 0016 11.5H4c-.476 0-.93.095-1.344.267l1.976-8.234z" /><path fill-rule="evenodd" d="M4 13a2 2 0 100 4h12a2 2 0 100-4H4zm11.24 2a.75.75 0 01.75-.75H16a.75.75 0 01.75.75v.01a.75.75 0 01-.75.75h-.01a.75.75 0 01-.75-.75V15zm-2.25-.75a.75.75 0 00-.75.75v.01c0 .414.336.75.75.75H13a.75.75 0 00.75-.75V15a.75.75 0 00-.75-.75h-.01z" clip-rule="evenodd" /></svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 hidden group-hover:block"><path fill-rule="evenodd" d="M15.988 3.012A2.25 2.25 0 0118 5.25v6.5A2.25 2.25 0 0115.75 14H13.5v-3.379a3 3 0 00-.879-2.121l-3.12-3.121a3 3 0 00-1.402-.791 2.252 2.252 0 011.913-1.576A2.25 2.25 0 0112.25 1h1.5a2.25 2.25 0 012.238 2.012zM11.5 3.25a.75.75 0 01.75-.75h1.5a.75.75 0 01.75.75v.25h-3v-.25z" clip-rule="evenodd" /><path d="M3.5 6A1.5 1.5 0 002 7.5v9A1.5 1.5 0 003.5 18h7a1.5 1.5 0 001.5-1.5v-5.879a1.5 1.5 0 00-.44-1.06L8.44 6.439A1.5 1.5 0 007.378 6H3.5z" /></svg></div><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 hidden text-green-500"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" /></svg><p class="text-white text-sm font-mono leading-5 truncate">${player.server}</p>`
         playerDetailsTopBoxServer.classList.remove("hidden");
     }
     else playerDetailsTopBoxServer.classList.add("hidden");
@@ -542,7 +554,7 @@ screenManager.createScreen("player", "Alt Manager", true, async function (player
     const playerDetailsTopBoxVersion = document.createElement("div");
     playerDetailsTopBoxVersion.classList.add("flex", "gap-x-3");
     if (player.online) {
-        playerDetailsTopBoxVersion.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 text-neutral-500"><path fill-rule="evenodd" d="M10.362 1.093a.75.75 0 00-.724 0L2.523 5.018 10 9.143l7.477-4.125-7.115-3.925zM18 6.443l-7.25 4v8.25l6.862-3.786A.75.75 0 0018 14.25V6.443zm-8.75 12.25v-8.25l-7.25-4v7.807a.75.75 0 00.388.657l6.862 3.786z" clip-rule="evenodd" /></svg><p class="text-white text-sm">${player.version}</p>`;
+        playerDetailsTopBoxVersion.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 text-neutral-500"><path fill-rule="evenodd" d="M10.362 1.093a.75.75 0 00-.724 0L2.523 5.018 10 9.143l7.477-4.125-7.115-3.925zM18 6.443l-7.25 4v8.25l6.862-3.786A.75.75 0 0018 14.25V6.443zm-8.75 12.25v-8.25l-7.25-4v7.807a.75.75 0 00.388.657l6.862 3.786z" clip-rule="evenodd" /></svg><p class="text-white text-sm">${player.gameMode[0]!.toUpperCase() + player.gameMode.slice(1)} · ${player.version}</p>`;
         playerDetailsTopBoxVersion.classList.remove("hidden");
     }
     else playerDetailsTopBoxVersion.classList.add("hidden");
@@ -593,7 +605,8 @@ screenManager.createScreen("player", "Alt Manager", true, async function (player
     hungerProgress.classList.add("h-full", "rounded-full", "transition-all", "ease-in-out");
     hungerBar.appendChild(hungerProgress);
 
-    if (player.online) {
+    if (player.online && !["creative", "spectator"].includes(player.gameMode)) {
+        playerDetailsBottomBoxMetrics.classList.remove("hidden");
         const colors: Record<string, string> = {
             100: "bg-green-500",
             50: "bg-amber-500",
@@ -613,11 +626,37 @@ screenManager.createScreen("player", "Alt Manager", true, async function (player
         hungerProgress.classList.add(hungerColor);
         hungerProgress.style.width = `${hungerPercentage}%`;
     }
+    else playerDetailsBottomBoxMetrics.classList.add("hidden");
 
     const playButton = document.createElement("button");
     playButton.classList.add("bg-blue-500", "text-white", "font-semibold", "px-3", "py-2", "group", "flex", "rounded-xl", "border", "border-neutral-800", "hover:bg-blue-600", "focus:outline-none", "focus:ring-2", "focus:ring-offset-2", "focus:ring-offset-neutral-900", "focus:ring-blue-500");
     playButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6 -mr-6"><path fill-rule="evenodd" d="M4.5 5.653c0-1.426 1.529-2.33 2.779-1.643l11.54 6.348c1.295.712 1.295 2.573 0 3.285L7.28 19.991c-1.25.687-2.779-.217-2.779-1.643V5.653z" clip-rule="evenodd" /></svg><span class="mx-auto">Play</span>`;
     playerDetailsBottomBox.appendChild(playButton);
+
+    client.on("playerMessage", (id: AltManager.PlayerId, time: Date, message: string, position: string) => {
+        if (player.online && player.offlinePlayer.id === id) {
+            let scroll = terminalText.scrollTop === (terminalText.scrollHeight - terminalText.offsetHeight);
+            switch (position) {
+                case "game_info": {
+                    const d = document.createElement("div");
+                    d.classList.add("flex", "items-center", "space-x-2");
+                    d.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 text-blue-400"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd" /></svg><p class="leading-none">${message}</p>`;
+                    terminalText.appendChild(d);
+                }
+                case "system":
+                case "chat": {
+                    const p = document.createElement("p");
+                    const t = document.createElement("span");
+                    t.classList.add("text-neutral-400");
+                    t.innerText = `[${time.toLocaleTimeString()} INFO]: `;
+                    p.innerText = message;
+                    p.prepend(t);
+                    terminalText.appendChild(p);
+                }
+            }
+            if (scroll) terminalText.scrollTop = terminalText.scrollHeight;
+        }
+    });
 });
 
 document.addEventListener("DOMContentLoaded", () => {
