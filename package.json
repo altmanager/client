@@ -27,6 +27,6 @@
     "webpack-cli": "^5.0.1"
   },
   "dependencies": {
-    "@altmanager/ts-client": "github:altmanager/ts-client#events"
+    "@altmanager/ts-client": "github:altmanager/ts-client#chat-logs-and-commands"
   }
 }
