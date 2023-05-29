@@ -17,7 +17,7 @@
     "css-minimizer-webpack-plugin": "^5.0.0",
     "html-minimizer-webpack-plugin": "^4.3.0",
     "postcss": "^8.4.23",
-    "postcss-loader": "^7.3.0",
+    "postcss-loader": "^7.3.2",
     "postcss-preset-env": "^8.4.1",
     "style-loader": "^3.3.3",
     "tailwindcss": "^3.3.2",
